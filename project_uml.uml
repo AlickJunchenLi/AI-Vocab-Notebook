@@ -1,0 +1,389 @@
+@startuml
+
+!pragma layout smetana
+skinparam classAttributeIconSize 0
+skinparam packageStyle rectangle
+title Chinese–English Vocabulary Notebook Architecture
+
+enum NotebookLanguage {
+  zh
+  en
+}
+
+enum LegacyLanguage {
+  chinese
+  english
+}
+
+package "SQLite Schema" {
+  entity vocabulary_entries {
+    *id: INTEGER PK AUTOINCREMENT
+    --
+    chinese_text: TEXT NOT NULL
+    english_text: TEXT NOT NULL
+    part_of_speech: TEXT
+    tags: TEXT
+    notes: TEXT
+    created_at: DATETIME DEFAULT CURRENT_TIMESTAMP
+    updated_at: DATETIME DEFAULT CURRENT_TIMESTAMP
+  }
+
+  entity synonym_sets {
+    *id: INTEGER PK AUTOINCREMENT
+    --
+    language: TEXT CHECK(language IN ('zh','en'))
+    description: TEXT
+    source: TEXT
+  }
+
+  entity synonym_terms {
+    *id: INTEGER PK AUTOINCREMENT
+    --
+    set_id: INTEGER FK -> synonym_sets.id
+    term_text: TEXT NOT NULL
+    normalized_text: TEXT NOT NULL
+  }
+
+  entity vocabulary_synonym_links {
+    *vocab_id: INTEGER FK -> vocabulary_entries.id
+    *synonym_term_id: INTEGER FK -> synonym_terms.id
+    match_kind: TEXT -- exact|synonym|fuzzy
+    similarity_score: REAL
+  }
+
+  entity import_batches {
+    *id: INTEGER PK AUTOINCREMENT
+    --
+    source_file: TEXT
+    language: TEXT
+    imported_at: DATETIME DEFAULT CURRENT_TIMESTAMP
+    row_count: INTEGER
+  }
+}
+
+synonym_sets ||--o{ synonym_terms
+vocabulary_entries ||--o{ vocabulary_synonym_links
+synonym_terms ||--o{ vocabulary_synonym_links
+import_batches "1" -- "0..*" synonym_sets : provenance
+
+note right of vocabulary_synonym_links
+CREATE TABLE vocabulary_entries (...);
+CREATE TABLE synonym_sets (...);
+CREATE TABLE synonym_terms (... FOREIGN KEY(set_id) REFERENCES synonym_sets(id));
+CREATE TABLE vocabulary_synonym_links (
+  vocab_id INTEGER REFERENCES vocabulary_entries(id),
+  synonym_term_id INTEGER REFERENCES synonym_terms(id),
+  match_kind TEXT NOT NULL,
+  similarity_score REAL,
+  PRIMARY KEY (vocab_id, synonym_term_id)
+);
+end note
+
+package "Domain Model" {
+  class VocabularyEntry {
+    +id: int
+    +chinese_text: string
+    +english_text: string
+    +part_of_speech: string
+    +tags: list<string>
+    +notes: string
+    +created_at: datetime
+    +updated_at: datetime
+  }
+
+  class SynonymSet {
+    +id: int
+    +language: NotebookLanguage
+    +description: string
+  }
+
+  class SynonymTerm {
+    +id: int
+    +normalized_text: string
+    +raw_text: string
+  }
+
+  class VocabularyRepository {
+    +connect(db_path: string)
+    +insert_entry(entry: VocabularyEntry)
+    +bulk_insert(entries: list<VocabularyEntry>)
+    +attach_synonym(vocab_id: int, term_id: int, kind: string, score: float)
+    +search_by_terms(terms: set<string>, language: NotebookLanguage): list<VocabularyEntry>
+    +fetch_synonyms(term: string, language: NotebookLanguage): set<SynonymTerm>
+  }
+}
+
+VocabularyRepository --> vocabulary_entries
+VocabularyRepository --> synonym_sets
+VocabularyRepository --> synonym_terms
+VocabularyRepository --> vocabulary_synonym_links
+VocabularyRepository --> import_batches
+
+package "Import Pipeline" {
+  class CsvImporter {
+    +import_translation_csv(path: string, repo: VocabularyRepository, batch: import_batches)
+    +import_user_vocab(path: string, repo: VocabularyRepository)
+  }
+
+  class SynonymImporter {
+    +language: NotebookLanguage
+    +import_synonym_csv(path: string, repo: VocabularyRepository, batch: import_batches)
+  }
+
+  class TextNormalizer {
+    +normalize(text: string, language: NotebookLanguage): string
+    +strip_punctuation(text: string): string
+    +canonicalize_width(text: string): string
+    +to_lower_ascii(text: string): string
+    +simplify_chinese(text: string): string
+  }
+
+  class FuzzyMatcher {
+    +distance(a: string, b: string): int
+    +similarity(a: string, b: string): float
+    +is_close(a: string, b: string, threshold: float): bool
+  }
+
+  class SynonymLinker {
+    +link_terms_to_vocab(language: NotebookLanguage)
+    -exact_match(term: string, language: NotebookLanguage): list<int>
+    -synonym_match(term: string, language: NotebookLanguage): list<int>
+    -fuzzy_match(term: string, language: NotebookLanguage, matcher: FuzzyMatcher): list<pair<int,float>>
+  }
+
+  class LegacyThesaurusAdapter {
+    +build_dictionary(language: LegacyLanguage): wordsDictionary
+    +load_from_header_sources(): wordsDictionary
+    +export_synonym_groups(dict: wordsDictionary, repo: VocabularyRepository, targetLanguage: NotebookLanguage)
+  }
+}
+
+CsvImporter --> TextNormalizer : normalize CSV tokens
+CsvImporter --> VocabularyRepository : insert entries
+SynonymImporter --> TextNormalizer
+SynonymImporter --> VocabularyRepository : create sets/terms
+SynonymImporter --> import_batches
+SynonymLinker --> VocabularyRepository : read & link terms
+SynonymLinker --> TextNormalizer
+SynonymLinker --> FuzzyMatcher
+SynonymImporter --> LegacyThesaurusAdapter : leverage legacy synonyms
+LegacyThesaurusAdapter --> VocabularyRepository
+
+note right of LegacyThesaurusAdapter
+Adapter bridges legacy C++ thesaurus code (see next page)
+into the SQLite workflow by exporting synonym groups
+and translation pairs harvested from header-files-new & source-fils-new.
+end note
+
+package "Search API" {
+  class SynonymResolver {
+    +get_related_terms(query: string, language: NotebookLanguage): set<string>
+    +expand_with_linked_vocab(terms: set<string>, language: NotebookLanguage): set<string>
+    -walk_sets(seed: SynonymTerm): set<string>
+  }
+
+  class SearchService {
+    +search_vocabulary(query_text: string, language: string): list<VocabularyEntry>
+    -collect_candidate_terms(query_text: string, language: NotebookLanguage): list<string>
+    -rank_results(entries: list<VocabularyEntry>, query_text: string, language: NotebookLanguage): list<VocabularyEntry>
+    -score_exact(entry: VocabularyEntry, normalized_query: string): float
+    -score_synonym(entry: VocabularyEntry): float
+    -score_fuzzy(entry: VocabularyEntry, query_text: string): float
+  }
+}
+
+SynonymResolver --> VocabularyRepository
+SearchService --> SynonymResolver
+SearchService --> VocabularyRepository
+SearchService --> TextNormalizer
+SearchService --> FuzzyMatcher
+SearchService --> NotebookLanguage
+
+note right of SynonymLinker
+Linking strategy:
+1. normalize terms (trim, lowercase, width, simplified Chinese).
+2. direct joins on normalized_text for exact matches.
+3. fallback to synonyms via synonym_sets (same language).
+4. fuzzy match using Levenshtein distance < 2 or similarity >= 0.82.
+Matches are recorded in vocabulary_synonym_links with match_kind exact/synonym/fuzzy.
+end note
+
+note right of SearchService
+Python-style implementation:
+def search_vocabulary(query_text, language):
+    normalized = normalizer.normalize(query_text, language)
+    terms = synonym_resolver.get_related_terms(normalized, language)
+    candidates = repo.search_by_terms(terms | {normalized}, language)
+    ranked = rank_results(candidates, normalized, language)
+    return ranked
+Uses sqlite3, csv, and python-Levenshtein (for FuzzyMatcher).
+end note
+
+note bottom of CsvImporter
+CSV import (Python):
+with open(path, newline='', encoding='utf-8') as f:
+    reader = csv.DictReader(f)
+    for row in reader:
+        entry = VocabularyEntry(
+            chinese_text=row['chinese'],
+            english_text=row['english'],
+            part_of_speech=row.get('pos'),
+            tags=row.get('tags', '').split(';'),
+            notes=row.get('notes')
+        )
+        repo.insert_entry(entry)
+end note
+
+note bottom of SynonymImporter
+Synonym CSV layout: "group_id,term".
+Importer groups rows by group_id, creates/loads a synonym_sets record per group,
+normalizes each term, and bulk inserts into synonym_terms (normalized_text enables joins).
+end note
+
+note bottom of SynonymResolver
+Resolver flow:
+1. normalize query.
+2. fetch synonym_terms.normalized_text = query.
+3. traverse synonym_sets to collect peers.
+4. include previously linked vocab synonyms via vocabulary_synonym_links.
+5. optionally add fuzzy-near forms produced by TextNormalizer + FuzzyMatcher.
+end note
+
+@enduml
+
+@startuml
+
+!pragma layout smetana
+skinparam classAttributeIconSize 0
+skinparam packageStyle rectangle
+title Legacy C++ Thesaurus Integration
+
+enum LegacyLanguage {
+  chinese
+  english
+}
+
+package "C++ AI Thesaurus Core\n(header-files-new / source-fils-new)" {
+  class aiThesaurusWord {
+    +word: string
+    +language: LegacyLanguage
+    #aiWordSynonyms: set<aiThesaurusWord*>
+    #aiWordTranslations: set<aiThesaurusWord*>
+    +aiThesaurusWord(queryWord: string&, queryLanguage: LegacyLanguage)
+  }
+
+  class enAiThesaurusWord {
+    +enAiThesaurusWord(queryWord: string&)
+  }
+
+  class zhAiThesaurusWord {
+    #getTokens(iss: istringstream&, token: string&): bool
+    #getExportName(): string
+    +loadFile(): unique_ptr<ifstream>
+    +getSynonyms(word: string): set<string>
+    +printAll(): void
+    +exportAll(): void
+  }
+
+  class wordsDictionary {
+    -database: map<string, aiThesaurusWord*>
+    -ZHDatabase: map<string, aiThesaurusWord*>
+    -ENDatabase: map<string, aiThesaurusWord*>
+    +wordsDictionary()
+    -createAllChineseSynonyms(): void
+    -createAllEnglishSynonyms(): void
+    -createAllTranslations(): void
+    +initializeChineseSynonyms(): void
+    +initializeEnglishSynonyms(): void
+    +initializeTranslations(): void
+    -loadChineseSynonymFile(): unique_ptr<ifstream>
+    -loadEnglishSynonymFile(): unique_ptr<ifstream>
+    -loadTranslationFile(): unique_ptr<ifstream>
+    -getTokens(iss: istringstream&, token: string&): bool
+  }
+}
+
+class LegacyThesaurusAdapter {
+  +build_dictionary(language: LegacyLanguage): wordsDictionary
+  +load_from_header_sources(): wordsDictionary
+  +export_synonym_groups(dict: wordsDictionary)
+}
+
+aiThesaurusWord <|-- enAiThesaurusWord
+aiThesaurusWord <|-- zhAiThesaurusWord
+wordsDictionary *-- "0..*" aiThesaurusWord : owns
+aiThesaurusWord --> LegacyLanguage
+wordsDictionary .. aiThesaurusWord : friend
+LegacyThesaurusAdapter ..> aiThesaurusWord
+LegacyThesaurusAdapter ..> wordsDictionary
+
+note right of wordsDictionary
+Mirrors legacy implementation:
+headers under c++-file/header-files-new/*.h
+sources under c++-file/source-fils-new/*.cpp
+Adapter exports these synonym relationships upstream.
+end note
+
+note right of LegacyThesaurusAdapter
+This diagram complements the main architecture.
+Adapter output feeds the SQLite synonym tables shown earlier.
+end note
+
+package "New Header Directory\nc++-file/header-files-docs" {
+  class "ai_thesaurus_word.h" as header_aiThesaurus <<header>> {
+    .. Working principle ..
+    - Declares base AI word node shared by EN/ZH variants.
+    - Holds canonical word text, LegacyLanguage flag,
+      and synonym/translation adjacency sets.
+    - Constructor wires language + string refs immediately
+      so downstream dictionaries can build graphs safely.
+  }
+
+  class "en_ai_thesaurus_word.h" as header_enAi <<header>> {
+    .. Working principle ..
+    - Specializes aiThesaurusWord for English terms.
+    - Provides hooks to English synonym CSV loaders.
+    - Keeps implementation intentionally thin so that
+      dictionaries focus on data wiring.
+  }
+
+  class "zh_ai_thesaurus_word.h" as header_zhAi <<header>> {
+    .. Working principle ..
+    - Chinese-specific subclass adding token parsing helpers.
+    - Declares virtual load/export helpers so callers
+      can read CSV blocks, print and export grouped synonyms.
+    - Encapsulates tricky I/O so higher layers stay clean.
+  }
+
+  class "words_dictionary.h" as header_dict <<header>> {
+    .. Working principle ..
+    - Owns the in-memory graph of aiThesaurusWord objects.
+    - Provides creation routines for CN/EN synonyms +
+      cross-language translations sourced from CSV.
+    - Exposes initialization entry points used by adapters
+      to populate SQLite-friendly synonym sets.
+  }
+
+  class "enums.h" as header_enums <<header>> {
+    .. Working principle ..
+    - Declares LegacyLanguage enum (chinese/english).
+    - Shared by every header so type safety is consistent.
+  }
+}
+
+header_aiThesaurus .. aiThesaurusWord : declares
+header_enAi .. enAiThesaurusWord : declares
+header_zhAi .. zhAiThesaurusWord : declares
+header_dict .. wordsDictionary : declares
+header_enums .. LegacyLanguage : declares
+header_enums .. aiThesaurusWord
+header_enums .. enAiThesaurusWord
+header_enums .. zhAiThesaurusWord
+
+note bottom of header_dict
+All doc headers live in c++-file/header-files-docs
+so newcomers can open a single folder and read the
+plain-language explanations above each declaration.
+end note
+
+@enduml

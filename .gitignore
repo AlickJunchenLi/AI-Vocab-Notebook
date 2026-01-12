@@ -1,0 +1,29 @@
+# Build outputs
+app/dist/
+app/renderer/dist/
+app/backend/build/
+app/backend/dist/
+out/
+*.o
+
+# Packaged artifacts
+*.asar
+*.exe
+*.dll
+*.msi
+
+# Dependencies and virtualenvs
+node_modules/
+app/node_modules/
+.venv/
+venv/
+env/
+app/.venv/
+
+# Python cache
+__pycache__/
+*.py[cod]
+
+# OS/editor noise
+.DS_Store
+*.log

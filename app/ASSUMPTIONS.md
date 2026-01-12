@@ -1,0 +1,5 @@
+- 开发环境：Windows 10/11，已安装 Node.js LTS 与 Python 3.11+。
+- Python 可通过命令 `python` 直接调用（若不是，请在后续步骤调整 main 里的 spawn 命令）。
+- 尚未添加 ESLint/Prettier；后续步骤再补。
+- dev 阶段 Electron 使用 ts-node 直接运行 TS；后续打包再引入 electron-builder 配置。
+- Python 后端尚未接入（后续步骤完成）。

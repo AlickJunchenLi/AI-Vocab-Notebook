@@ -1,0 +1,8 @@
+#!/bin/bash
+
+mkdir -p "/mnt/c/Users/ROG/Desktop/AI_VOCAB_NOTEBOOK/English_Thesaurus"
+
+
+curl -L -u "KAGGLE_USERNAME:KAGGLE_KEY" \
+  -o "/mnt/c/Users/ROG/Desktop/AI_VOCAB_NOTEBOOK/English_Thesaurus/wordnet.zip" \
+  "https://www.kaggle.com/api/v1/datasets/download/dfydata/wordnet-dictionary-thesaurus-files-in-csv-format"

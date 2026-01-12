@@ -1,0 +1,23 @@
+:root {
+  color: #1f2a3d;
+  background-color: #f8fafc;
+}
+
+body {
+  margin: 0;
+  font-family: "Inter", system-ui, -apple-system, sans-serif;
+}
+
+button {
+  cursor: pointer;
+  padding: 10px 16px;
+  border-radius: 8px;
+  border: 1px solid #0f172a;
+  background: #0f172a;
+  color: #f8fafc;
+  font-weight: 600;
+}
+
+p {
+  max-width: 520px;
+}

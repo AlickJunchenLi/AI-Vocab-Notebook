@@ -1,0 +1,74 @@
+{
+  "name": "ai-vocab-notebook",
+  "version": "0.1.0",
+  "description": "AI Vocab Notebook desktop app (Electron + React + Python backend, step 1 scaffold)",
+  "main": "electron/main.js",
+  "scripts": {
+    "dev": "concurrently \"npm:dev:renderer\" \"npm:dev:electron\"",
+    "dev:renderer": "vite dev --host --port 5173 --strictPort",
+    "dev:electron": "node ./scripts/run-electron.js",
+    "build:renderer": "vite build",
+    "build:backend": "cd backend && pyinstaller --noconfirm --clean --onedir --name gw_backend src/server.py",
+    "dist:win": "npm run build:renderer && npm run build:backend && electron-builder --win nsis",
+    "typecheck": "tsc --noEmit",
+    "lint": "echo \"TODO: add lint\"",
+    "postinstall": "electron-builder install-app-deps"
+  },
+  "dependencies": {
+    "electron-log": "^4.4.8",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.5",
+    "@types/react": "^18.2.46",
+    "@types/react-dom": "^18.2.18",
+    "@vitejs/plugin-react": "^4.2.1",
+    "concurrently": "^8.2.2",
+    "cross-env": "^7.0.3",
+    "electron": "^28.2.0",
+    "electron-builder": "^24.9.1",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.3.3",
+    "vite": "^5.0.10"
+  },
+  "build": {
+    "appId": "com.aivocab.notebook",
+    "productName": "AI Vocab Notebook",
+    "asar": true,
+    "extraResources": [
+      {
+        "from": "backend/dist/gw_backend",
+        "to": "backend",
+        "filter": [
+          "**/*"
+        ]
+      },
+      {
+        "from": "resources/nodejs",
+        "to": "nodejs",
+        "filter": [
+          "**/*"
+        ]
+      }
+    ],
+    "files": [
+      "electron/**/*",
+      "renderer/**/*",
+      "backend/dist/gw_backend/**/*",
+      "backend/src/**/*",
+      "node_modules/electron-log/**/*",
+      "scripts/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": "nsis"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "include": "scripts/installer.nsh"
+    }
+  }
+}
