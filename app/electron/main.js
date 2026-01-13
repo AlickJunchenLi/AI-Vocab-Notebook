@@ -242,12 +242,8 @@ function sanitizeValue(val) {
 }
 
 function attachDecodedLines(stream, label, onLine) {
-<<<<<<< HEAD
-  const decoder = new TextDecoder("gb18030", { fatal: false });
-=======
   // Backend writes UTF-8 (PYTHONUTF8=1), so decode stdout/stderr as UTF-8 to avoid mojibake
   const decoder = new TextDecoder("utf-8", { fatal: false });
->>>>>>> 792df40 (lasdfsa)
   let buffer = "";
 
   stream.on("data", (chunk) => {
