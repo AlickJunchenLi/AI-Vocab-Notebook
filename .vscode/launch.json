@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 {
   "version": "0.2.0",
   "configurations": [
@@ -14,3 +15,21 @@
     
   ]
 }
+=======
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Run app (gdb, MinGW-w64)",
+      "type": "cppdbg",
+      "request": "launch",
+      "program": "${workspaceFolder}\\out\\app.exe",
+      "cwd": "${workspaceFolder}",
+      "MIMode": "gdb",
+      "miDebuggerPath": "C:\\msys64\\ucrt64\\bin\\gdb.exe",
+      "preLaunchTask": "Build (g++, C++20)"
+    },
+    
+  ]
+}
+>>>>>>> 792df40 (lasdfsa)

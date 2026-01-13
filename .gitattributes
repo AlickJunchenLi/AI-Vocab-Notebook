@@ -1,3 +1,9 @@
+<<<<<<< HEAD
 notebook.db filter=lfs diff=lfs merge=lfs -text
 *.csv filter=lfs diff=lfs merge=lfs -text
 *.sql filter=lfs diff=lfs merge=lfs -text
+=======
+notebook.db filter=lfs diff=lfs merge=lfs -text
+*.csv filter=lfs diff=lfs merge=lfs -text
+*.sql filter=lfs diff=lfs merge=lfs -text
+>>>>>>> 792df40 (lasdfsa)

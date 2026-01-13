@@ -53,6 +53,71 @@ def handle_ping(_db: Path, payload: Dict[str, Any]):
     return "pong"
 
 
+<<<<<<< HEAD
+=======
+def _auto_link_entry(db_path: Path, entry_id: int, language: str, word: str, translation: str, top_k: int = 12) -> List[int]:
+    """
+    Connect a freshly added/updated entry to related entries across both languages.
+    Uses translation overlap, fuzzy string matching, and semantic fallbacks.
+    """
+    created: List[int] = []
+    seen_ids = set([entry_id])
+    texts = [t for t in [word, translation] if t]
+
+    # 1) Direct translation overlap
+    for t in texts:
+        targets = find_translation_matches(db_path, language, t)
+        for tid in targets:
+            if tid in seen_ids or tid == entry_id:
+                continue
+            other = get_entry(db_path, tid)
+            rel_type = "translation" if other and other.get("language") != language else "synonym"
+            try:
+                rel_id = upsert_relation(db_path, entry_id, tid, rel_type)
+                created.append(rel_id)
+                seen_ids.add(tid)
+            except Exception:
+                continue
+            if len(created) >= top_k:
+                return created
+
+    # 2) Fuzzy/synonym overlap on word+translation fields (cross-language aware)
+    syn_targets = find_synonym_matches(db_path, language, word, translation)
+    for tid in syn_targets:
+        if tid in seen_ids or tid == entry_id:
+            continue
+        other = get_entry(db_path, tid)
+        rel_type = "translation" if other and other.get("language") != language else "synonym"
+        try:
+            rel_id = upsert_relation(db_path, entry_id, tid, rel_type)
+            created.append(rel_id)
+            seen_ids.add(tid)
+        except Exception:
+            continue
+        if len(created) >= top_k:
+            return created
+
+    # 3) Resolve candidates using the richer resolver (includes semantic fallback)
+    for text in texts:
+        resolved = resolve_entry_candidates(db_path, text, language=None, top_k=top_k)
+        for c in resolved.get("candidates", []):
+            tid = c.get("entry_id")
+            if tid in seen_ids or tid == entry_id or tid is None:
+                continue
+            rel_type = "translation" if c.get("language") != language else "synonym"
+            try:
+                rel_id = upsert_relation(db_path, entry_id, tid, rel_type)
+                created.append(rel_id)
+                seen_ids.add(tid)
+            except Exception:
+                continue
+            if len(created) >= top_k:
+                return created
+
+    return created
+
+
+>>>>>>> 792df40 (lasdfsa)
 def handle_add_entry(db_path: Path, payload: Dict[str, Any]):
     lang = payload.get("language")
     word = payload.get("word")
@@ -62,6 +127,7 @@ def handle_add_entry(db_path: Path, payload: Dict[str, Any]):
         raise ValueError("missing_fields")
     row_id = add_entry(db_path, lang, word, translation, notes)
     enqueue_ann_op(db_path, row_id, "upsert", "add_entry")
+<<<<<<< HEAD
     # auto-link to existing entries
     auto_relations = []
     # link translations
@@ -82,6 +148,9 @@ def handle_add_entry(db_path: Path, payload: Dict[str, Any]):
             auto_relations.append(rel_id)
         except Exception:
             continue
+=======
+    auto_relations = _auto_link_entry(db_path, row_id, lang, word, translation)
+>>>>>>> 792df40 (lasdfsa)
     return {"id": row_id, "linked_relations": auto_relations}
 
 
@@ -107,7 +176,12 @@ def handle_update_entry(db_path: Path, payload: Dict[str, Any]):
         raise ValueError("missing_fields")
     changed = update_entry(db_path, entry_id, lang, word, translation, notes)
     enqueue_ann_op(db_path, entry_id, "upsert", "update_entry")
+<<<<<<< HEAD
     return {"updated": changed}
+=======
+    auto_relations = _auto_link_entry(db_path, entry_id, lang, word, translation)
+    return {"updated": changed, "linked_relations": auto_relations}
+>>>>>>> 792df40 (lasdfsa)
 
 
 def handle_delete_entry(db_path: Path, payload: Dict[str, Any]):
