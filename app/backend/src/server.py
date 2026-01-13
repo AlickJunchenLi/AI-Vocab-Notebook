@@ -32,6 +32,7 @@ from semantic import (
     semantic_search,
     rebuild_embeddings,
     semantic_status,
+    DEFAULT_MODEL,
 )
 from ann.index_manager import ann_status as ann_status_fn, rebuild_ann_index, ann_search, apply_ann_updates
 
@@ -420,27 +421,30 @@ def handle_get_synonyms(db_path: Path, payload: Dict[str, Any]):
     visited_ids = set([best["entry_id"]] + [g["entry_id"] for g in graph_results])
 
     fallback_results = []
-    if fallback and len(graph_results) < topk:
-        # reuse candidates + search_like as supplement
+    if fallback:
+        # Always show AI candidates, even if they overlap with graph results.
+        seen_fb = set()
         candidates = resolved.get("candidates", [])
         for c in candidates:
-            if c["entry_id"] not in visited_ids:
-                fallback_results.append(
-                    {
-                        "entry_id": c["entry_id"],
-                        "word": c["word"],
-                        "language": c["language"],
-                        "score": c.get("score"),
-                        "match_type": c.get("match_type", "candidate"),
-                    }
-                )
-                visited_ids.add(c["entry_id"])
-                if len(graph_results) + len(fallback_results) >= topk:
-                    break
-        if len(graph_results) + len(fallback_results) < topk:
+            eid = c.get("entry_id")
+            if eid is None or eid in seen_fb:
+                continue
+            fallback_results.append(
+                {
+                    "entry_id": eid,
+                    "word": c.get("word"),
+                    "language": c.get("language"),
+                    "score": c.get("score"),
+                    "match_type": c.get("match_type", "candidate"),
+                }
+            )
+            seen_fb.add(eid)
+            if len(fallback_results) >= topk:
+                break
+        if len(fallback_results) < topk:
             extra = search_like(db_path, q, limit=topk * 2, offset=0)
             for e in extra:
-                if e["id"] in visited_ids:
+                if e["id"] in seen_fb:
                     continue
                 fallback_results.append(
                     {
@@ -451,42 +455,42 @@ def handle_get_synonyms(db_path: Path, payload: Dict[str, Any]):
                         "match_type": "like",
                     }
                 )
-                visited_ids.add(e["id"])
-                if len(graph_results) + len(fallback_results) >= topk:
+                seen_fb.add(e["id"])
+                if len(fallback_results) >= topk:
                     break
 
     return {
         "entry": {"entry_id": best["entry_id"], "word": start_entry["word"], "language": start_entry["language"]} if start_entry else None,
         "graph_results": graph_results[:topk],
-        "fallback_results": fallback_results[: max(0, topk - len(graph_results))],
+        "fallback_results": fallback_results[:topk],
         "candidates": resolved.get("candidates", []),
     }
 
 
 def handle_semantic_status(db_path: Path, payload: Dict[str, Any]):
-    model = payload.get("model") or semantic.DEFAULT_MODEL
+    model = payload.get("model") or DEFAULT_MODEL
     return semantic_status(db_path, model_name=model)
 
 
 def handle_rebuild_embeddings(db_path: Path, payload: Dict[str, Any]):
-    model = payload.get("model") or semantic.DEFAULT_MODEL
+    model = payload.get("model") or DEFAULT_MODEL
     count = rebuild_embeddings(db_path, model_name=model)
     return {"rebuilt": count}
 
 
 def handle_ann_status(db_path: Path, payload: Dict[str, Any]):
-    model = payload.get("model") or semantic.DEFAULT_MODEL
+    model = payload.get("model") or DEFAULT_MODEL
     return ann_status_fn(db_path, model)
 
 
 def handle_rebuild_ann_index(db_path: Path, payload: Dict[str, Any]):
-    model = payload.get("model") or semantic.DEFAULT_MODEL
+    model = payload.get("model") or DEFAULT_MODEL
     count = rebuild_ann_index(db_path, model)
     return {"rebuilt": count}
 
 
 def handle_ann_apply_updates(db_path: Path, payload: Dict[str, Any]):
-    model = payload.get("model") or semantic.DEFAULT_MODEL
+    model = payload.get("model") or DEFAULT_MODEL
     res = apply_ann_updates(db_path, model=model)
     return res
 

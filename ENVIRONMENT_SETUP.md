@@ -28,6 +28,11 @@ npm run dev
 - Electron window opens; the backend Python server is spawned automatically.
 - Data persists in `userData/notebook.db` (Electron userData path).
 
+### Running backend alone (CLI)
+- From repo root: `python app/backend/src/server.py "%USERPROFILE%\\.ai-vocab-notebook\\notebook.db"`
+- From inside `app/`: `python backend/src/server.py "%USERPROFILE%\\.ai-vocab-notebook\\notebook.db"`
+  (Do **not** use `app/app/...`; there is only one `app` directory.)
+
 ## Troubleshooting
 - If `npm` not found: add Node install directory to PATH or reopen the terminal.
 - If `python` not found: ensure Python install path is on PATH; verify with `python --version`.

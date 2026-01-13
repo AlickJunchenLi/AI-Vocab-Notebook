@@ -18,6 +18,11 @@ npm run dev
   - In production, main.js spawns that exe; dev uses `python backend/src/server.py`
   - All writable data (db, caches, ann index, HF cache) lives in `userData`
 
+## Backend only (CLI)
+- From repo root: `python app/backend/src/server.py "%USERPROFILE%\\.ai-vocab-notebook\\notebook.db"`
+- From inside `app/`: `python backend/src/server.py "%USERPROFILE%\\.ai-vocab-notebook\\notebook.db"`
+- Do **not** prefix with `app/app/...`; there is only one `app` directory.
+
 ## Reinstall / Repair
 - Just rerun the Windows installer; it detects an existing install and will reinstall/repair in place. App files are overwritten; notebook data in `app.getPath("userData")` stays untouched.
 - For a force repair on a broken/partial install, run the setup from PowerShell/CMD with the flag: `.\AI Vocab Notebook Setup.exe /reinstall` (adjust the file name to your built installer). This forces overwrite of app files even if the same version is already present.
