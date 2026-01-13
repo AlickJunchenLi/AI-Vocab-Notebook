@@ -18,10 +18,12 @@ class FaissBackend(BaseAnnBackend):
         xb = np.array(vectors, dtype=np.float32)
         # L2 normalize for cosine, then use IP
         faiss.normalize_L2(xb)
-        index = faiss.IndexHNSWFlat(self.dim, 32, faiss.METRIC_INNER_PRODUCT)
-        index.hnsw.efConstruction = 200
+        base = faiss.IndexHNSWFlat(self.dim, 32, faiss.METRIC_INNER_PRODUCT)
+        base.hnsw.efConstruction = 200
+        # Wrap with IDMap so add_with_ids is supported
+        index = faiss.IndexIDMap(base)
         index.add_with_ids(xb, np.array(ids, dtype=np.int64))
-        index.hnsw.efSearch = 64
+        base.hnsw.efSearch = 64
         return index
 
     def search(self, index: Any, query_vec, top_k: int):
