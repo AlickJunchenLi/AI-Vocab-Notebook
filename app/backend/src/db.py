@@ -393,46 +393,17 @@ def get_entries_by_ids(db_path: Path, ids: List[int]) -> List[Dict[str, Any]]:
 
 def find_translation_matches(db_path: Path, language: str, translation: str) -> List[int]:
     """
-<<<<<<< HEAD
-    Find entries in the opposite language whose word or translation matches the provided translation string.
-=======
     Find entries in any language whose word or translation looks like the provided translation string.
     This is used to connect cross-language pairs even if only one side exists.
->>>>>>> 792df40 (lasdfsa)
     """
     language = _safe_text(language)
     translation = _safe_text(translation)
     if not translation:
         return []
-<<<<<<< HEAD
-    target_lang = "zh" if language == "en" else "en"
-=======
->>>>>>> 792df40 (lasdfsa)
     conn = _connect(db_path)
     cur = conn.cursor()
     cur.execute(
         """
-<<<<<<< HEAD
-        SELECT id FROM entries
-        WHERE deleted_at IS NULL
-          AND language = ?
-          AND (word = ? OR translation LIKE ?)
-        """,
-        (target_lang, translation, f"%{translation}%"),
-    )
-    rows = cur.fetchall()
-    conn.close()
-    return [r[0] for r in rows]
-
-
-def find_synonym_matches(db_path: Path, language: str, word: str, threshold: float = 0.75) -> List[int]:
-    """
-    Find entries in the same language that look like synonyms (same/close word).
-    """
-    language = _safe_text(language)
-    word = _safe_text(word)
-    if not word:
-=======
         SELECT id, word, translation FROM entries
         WHERE deleted_at IS NULL
         """,
@@ -463,38 +434,19 @@ def find_synonym_matches(db_path: Path, language: str, word: str, translation: s
     word = _safe_text(word)
     translation = _safe_text(translation)
     if not word and not translation:
->>>>>>> 792df40 (lasdfsa)
         return []
     conn = _connect(db_path)
     cur = conn.cursor()
     cur.execute(
         """
-<<<<<<< HEAD
-        SELECT id, word FROM entries
-        WHERE deleted_at IS NULL AND language = ?
-        """,
-        (language,),
-=======
         SELECT id, language, word, translation
         FROM entries
         WHERE deleted_at IS NULL
         """
->>>>>>> 792df40 (lasdfsa)
     )
     rows = cur.fetchall()
     conn.close()
     matches: List[int] = []
-<<<<<<< HEAD
-    for entry_id, other_word in rows:
-        if not other_word:
-            continue
-        if other_word == word:
-            matches.append(entry_id)
-            continue
-        score = SequenceMatcher(None, word, other_word).ratio()
-        if score >= threshold:
-            matches.append(entry_id)
-=======
     seen = set()
     for entry_id, lang_val, other_word, other_trans in rows:
         if entry_id in seen:
@@ -514,7 +466,6 @@ def find_synonym_matches(db_path: Path, language: str, word: str, translation: s
         if best_score >= threshold:
             matches.append(entry_id)
             seen.add(entry_id)
->>>>>>> 792df40 (lasdfsa)
     return matches
 
 

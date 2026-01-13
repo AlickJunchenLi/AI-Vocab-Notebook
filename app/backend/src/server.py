@@ -53,8 +53,6 @@ def handle_ping(_db: Path, payload: Dict[str, Any]):
     return "pong"
 
 
-<<<<<<< HEAD
-=======
 def _auto_link_entry(db_path: Path, entry_id: int, language: str, word: str, translation: str, top_k: int = 12) -> List[int]:
     """
     Connect a freshly added/updated entry to related entries across both languages.
@@ -117,7 +115,6 @@ def _auto_link_entry(db_path: Path, entry_id: int, language: str, word: str, tra
     return created
 
 
->>>>>>> 792df40 (lasdfsa)
 def handle_add_entry(db_path: Path, payload: Dict[str, Any]):
     lang = payload.get("language")
     word = payload.get("word")
@@ -127,30 +124,7 @@ def handle_add_entry(db_path: Path, payload: Dict[str, Any]):
         raise ValueError("missing_fields")
     row_id = add_entry(db_path, lang, word, translation, notes)
     enqueue_ann_op(db_path, row_id, "upsert", "add_entry")
-<<<<<<< HEAD
-    # auto-link to existing entries
-    auto_relations = []
-    # link translations
-    targets = find_translation_matches(db_path, lang, translation)
-    for tid in targets:
-        try:
-            rel_id = upsert_relation(db_path, row_id, tid, "translation")
-            auto_relations.append(rel_id)
-        except Exception:
-            continue
-    # link synonyms
-    syn_targets = find_synonym_matches(db_path, lang, word)
-    for tid in syn_targets:
-        if tid == row_id:
-            continue
-        try:
-            rel_id = upsert_relation(db_path, row_id, tid, "synonym")
-            auto_relations.append(rel_id)
-        except Exception:
-            continue
-=======
     auto_relations = _auto_link_entry(db_path, row_id, lang, word, translation)
->>>>>>> 792df40 (lasdfsa)
     return {"id": row_id, "linked_relations": auto_relations}
 
 
@@ -176,12 +150,8 @@ def handle_update_entry(db_path: Path, payload: Dict[str, Any]):
         raise ValueError("missing_fields")
     changed = update_entry(db_path, entry_id, lang, word, translation, notes)
     enqueue_ann_op(db_path, entry_id, "upsert", "update_entry")
-<<<<<<< HEAD
-    return {"updated": changed}
-=======
     auto_relations = _auto_link_entry(db_path, entry_id, lang, word, translation)
     return {"updated": changed, "linked_relations": auto_relations}
->>>>>>> 792df40 (lasdfsa)
 
 
 def handle_delete_entry(db_path: Path, payload: Dict[str, Any]):

@@ -1,10 +1,5 @@
 from pathlib import Path
 from typing import List, Dict, Any, Optional
-
-<<<<<<< HEAD
-from .exact import resolve_exact
-from .fuzzy import resolve_fuzzy
-=======
 from difflib import SequenceMatcher
 
 from .exact import resolve_exact
@@ -12,32 +7,10 @@ from .fuzzy import resolve_fuzzy
 from search import search_like
 from semantic import SemanticUnavailable, semantic_search
 from ann.index_manager import ann_search
->>>>>>> 792df40 (lasdfsa)
 
 
 def resolve_entry_candidates(db_path: Path, q: str, language: Optional[str] = None, top_k: int = 5) -> Dict[str, Any]:
     """
-<<<<<<< HEAD
-    Resolve a query token into best + candidate list using exact then fuzzy.
-    """
-    candidates: List[Dict[str, Any]] = []
-    exact = resolve_exact(db_path, q, language)
-    seen = set()
-    for c in exact:
-        if c["entry_id"] in seen:
-            continue
-        candidates.append(c)
-        seen.add(c["entry_id"])
-    if len(candidates) < top_k:
-        fuzzy = resolve_fuzzy(db_path, q, language, top_k=top_k, threshold=0.3)
-        for c in fuzzy:
-            if c["entry_id"] in seen:
-                continue
-            candidates.append(c)
-            seen.add(c["entry_id"])
-            if len(candidates) >= top_k:
-                break
-=======
     Resolve a query token into best + candidate list using exact, fuzzy, LIKE, and semantic fallbacks.
     Always returns cross-language matches so Chinese tokens can link to English entries (and vice versa).
     """
@@ -49,7 +22,15 @@ def resolve_entry_candidates(db_path: Path, q: str, language: Optional[str] = No
             return
         # prefer requested language slightly when available
         boost = 0.05 if language and lang == language else 0.0
-        candidates.append({"entry_id": entry_id, "word": word, "language": lang, "score": score + boost, "match_type": match_type})
+        candidates.append(
+            {
+                "entry_id": entry_id,
+                "word": word,
+                "language": lang,
+                "score": score + boost,
+                "match_type": match_type,
+            }
+        )
         seen.add(entry_id)
 
     # 1) Exact in hinted language, then any language
@@ -75,7 +56,6 @@ def resolve_entry_candidates(db_path: Path, q: str, language: Optional[str] = No
     if len(candidates) < top_k:
         like_hits = search_like(db_path, q, limit=top_k * 2, offset=0)
         for h in like_hits:
-            # rough score based on overlap length
             blob = " ".join([h.get("word") or "", h.get("translation") or ""])
             score = SequenceMatcher(None, q, blob).ratio()
             _push(h["id"], h["language"], h.get("word") or "", score, "like")
@@ -97,6 +77,5 @@ def resolve_entry_candidates(db_path: Path, q: str, language: Optional[str] = No
             pass
 
     candidates.sort(key=lambda x: x.get("score", 0.0), reverse=True)
->>>>>>> 792df40 (lasdfsa)
     best = candidates[0] if candidates else None
     return {"best": best, "candidates": candidates[:top_k]}
