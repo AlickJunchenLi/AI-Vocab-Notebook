@@ -1,0 +1,31 @@
+@startuml
+Title AI Vocab Notebook - Functional View
+
+actor User
+package "Electron Shell" {
+  component "Renderer (React UI)\napp/renderer/src/App.tsx" as Renderer
+  component "Main Process\napp/electron/main.js" as Main
+}
+package "Python Backend" {
+  component "Server (server.py)\nJSONL IPC" as Server
+  component "DB Layer (db.py)\nSQLite schema" as DBLayer
+  component "Search (search.py)" as Search
+  component "Matching & Resolve\nmatching/*" as Matching
+  component "Records & Links\nrecord tables + tokens" as Records
+  component "Synonym Graph\nretrieval/graph_first" as Graph
+  component "Semantic/ANN\nsemantic/, ann/" as Semantic
+}
+database "SQLite notebook.db" as DB
+
+User --> Renderer : manage entries\nrecords/search
+Renderer --> Main : ipcRenderer calls\nping / backend:request / logs:getTail
+Main --> Server : spawn backend\nstdin/stdout JSONL
+Server --> DBLayer : CRUD entries/relations\nrecords, ANN queue
+DBLayer --> DB
+Server --> Search : LIKE / FTS / fuzzy search
+Server --> Matching : token resolve\nauto-link candidates
+Server --> Records : add/list records\nlink or unlink spans
+Server --> Graph : related words BFS
+Server --> Semantic : embeddings\nsemantic/ANN search
+Semantic --> DBLayer : read/write embeddings\nand ANN queue
+@enduml
