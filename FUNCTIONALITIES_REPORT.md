@@ -7,7 +7,7 @@ This document answers "how many functionalities are there in this project?" and 
 2. **Relation management & auto-linking** - create synonym/translation links and auto-link new or updated entries through overlap, fuzzy, and resolver passes.
    - Files used: `app/backend/src/server.py`, `app/backend/src/db.py`, `app/backend/src/matching/resolve.py`, `app/renderer/src/App.tsx`.
 3. **Search & candidate resolution** - query entries via LIKE, FTS, fuzzy, and semantic/ANN modes; resolve tokens to best entry candidates.
-   - Files used: `app/backend/src/search.py`, `app/backend/src/server.py`, `app/backend/src/matching/resolve.py`, `app/renderer/src/App.tsx`.
+   - Files use2d: `app/backend/src/search.py`, `app/backend/src/server.py`, `app/backend/src/matching/resolve.py`, `app/renderer/src/App.tsx`.
 4. **Record ingestion & annotation linking** - save free-form text records, extract tokens, and link or unlink spans to vocabulary entries with candidate review.
    - Files used: `app/backend/src/db.py`, `app/backend/src/server.py`, `app/backend/src/matching/tokens.py`, `app/renderer/src/App.tsx`.
 5. **Synonym graph exploration & suggestions** - traverse related words via relation graph and surface fallback AI candidates that can be promoted to synonyms.
